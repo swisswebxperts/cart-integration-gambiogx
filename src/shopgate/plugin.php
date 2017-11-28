@@ -26,6 +26,13 @@ define("SHOPGATE_PLUGIN_VERSION", "2.9.53");
 /**
  * GambioGX Plugin for Shopgate
  */
+
+##### Sonderanpassung natitrikot.ch BOF #####
+// SWIX start
+include_once(DIR_FS_CATALOG . 'admin/includes/swix_configure.php');
+// SWIX end
+##### Sonderanpassung natitrikot.ch BOF #####
+
 class ShopgatePluginGambioGX extends ShopgatePlugin
 {
     const SG_CF_ORDER                  = 'SG_CF_ORDER';
@@ -1481,7 +1488,9 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
         $this->insertStatusHistory($order, $dbOrderId, $orderData['orders_status']);
 
         $this->log('method: _setOrderPayment() ', ShopgateLogger::LOGTYPE_DEBUG);
-        $mappedPaymentMethod = $this->setOrderPayment($order, $dbOrderId, $orderData['orders_status']);
+        ##### Sonderanpassung natitrikot.ch BOF #####
+        $specialOrderStatus = $this->setOrderPayment($order, $dbOrderId, $orderData['orders_status']);
+        ##### Sonderanpassung natitrikot.ch EOF #####
 
         $this->log('method: _insertOrderItems() ', ShopgateLogger::LOGTYPE_DEBUG);
         $this->insertOrderItems($order, $dbOrderId, $orderData['orders_status'], $couponModel);
@@ -1497,7 +1506,9 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
         $orderUpdateData = $this->storeCustomFields($order, $dbOrderId, $orderData["gm_send_order_status"]);
 
         // Save status in order
-        $orderUpdateData["orders_status"] = $orderData["orders_status"];
+        ##### Sonderanpassung natitrikot.ch BOF #####
+        $orderUpdateData["orders_status"]	= (!empty($specialOrderStatus)) ? $specialOrderStatus : $orderData["orders_status"];
+        ##### Sonderanpassung natitrikot.ch EOF #####
         $orderUpdateData["last_modified"] = date('Y-m-d H:i:s');
         xtc_db_perform(TABLE_ORDERS, $orderUpdateData, "update", "orders_id = {$dbOrderId}");
 
@@ -1508,7 +1519,9 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
 
         if ($this->config->getSendOrderConfirmationMail()) {
             $this->log('method: sendOrderConfirmationMail', ShopgateLogger::LOGTYPE_DEBUG);
-            $this->sendOrderConfirmationMail($dbOrderId, $orderData, $mappedPaymentMethod);
+            ##### Sonderanpassung natitrikot.ch BOF #####
+            $this->sendOrderConfirmationMail($dbOrderId, $orderData, $specialOrderStatus);
+            ##### Sonderanpassung natitrikot.ch EOF #####
         }
 
         $this->log('return: end addOrder()', ShopgateLogger::LOGTYPE_DEBUG);
@@ -1779,6 +1792,10 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
         $payment     = $order->getPaymentMethod();
         $paymentInfo = $order->getPaymentInfos();
 
+        ##### Sonderanpassung natitrikot.ch BOF #####
+        $specialOrderStatus = "";
+        ##### Sonderanpassung natitrikot.ch EOF #####
+
         $orderData = array(
             'payment_method' => 'shopgate',
         );
@@ -1847,6 +1864,18 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
                         "customer_notified" => false,
                         "comments"          => xtc_db_prepare_input($comments),
                     );
+
+##### Sonderanpassung natitrikot.ch BOF #####
+                    $specialOrderStatus = SHOPGATE_PREPAY_ORDER_STATUS;
+                    // Order is not paid yet
+                    $histories[] = 	array(
+                        "orders_id"         => $dbOrderId,
+                        "orders_status_id"  => $specialOrderStatus,//$currentOrderStatus,
+                        "date_added"        => date('Y-m-d H:i:s'),
+                        "customer_notified" => false,
+                        "comments"          => xtc_db_prepare_input($comments),
+                    );
+##### Sonderanpassung natitrikot.ch EOF #####
                 }
 
                 break;
@@ -1855,6 +1884,20 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
                     ? $paymentName
                     : "invoice";
                 $orderData["payment_class"]  = "invoice";
+
+##### Sonderanpassung natitrikot.ch BOF #####
+                $orderData["payment_method"] = "creditreform";
+                $orderData["payment_class"] = "creditreform";
+                $specialOrderStatus = SHOPGATE_INVOICE_ORDER_STATUS_PENDENT;
+                // Order is not paid yet
+                $histories[] = 	array(
+                    "orders_id"         => $dbOrderId,
+                    "orders_status_id"  => $specialOrderStatus,//$currentOrderStatus,
+                    "date_added"        => date( 'Y-m-d H:i:s'),
+                    "customer_notified" => false,
+                    "comments"          => xtc_db_prepare_input($comments),
+                );
+##### Sonderanpassung natitrikot.ch EOF #####
 
                 break;
             case ShopgateOrder::COD:
@@ -1924,7 +1967,9 @@ class ShopgatePluginGambioGX extends ShopgatePlugin
         }
         xtc_db_perform(TABLE_ORDERS, $orderData, "update", "orders_id = {$dbOrderId}");
 
-        return $orderData["payment_method"];
+        ##### Sonderanpassung natitrikot.ch BOF #####
+        return $specialOrderStatus;
+        ##### Sonderanpassung natitrikot.ch EOF #####
     }
 
     /**
